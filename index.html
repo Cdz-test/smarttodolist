@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart TodoList</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta name="description" content="Découvrez une toute autre manière de génrer ses tâches, grace a notre Todolist interactive!">
+</head>
+<body class="bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 min-h-screen font-sans">
+    <div class="container mx-auto p-4">
+        <h1 class="text-4xl font-bold text-white text-center mb-8 animate-pulse">Smart TodoList</h1>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <form id="todo-form" class="flex flex-col md:flex-row gap-4">
+                <input type="text" id="todo-input" placeholder="Nouvelle tâche" class="flex-grow p-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-600 transition duration-300">
+                <input type="date" id="todo-date" class="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-600 transition duration-300">
+                <select id="todo-priority" class="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-600 transition duration-300">
+                    <option value="low">Basse</option>
+                    <option value="medium">Moyenne</option>
+                    <option value="high">Haute</option>
+                </select>
+                <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition duration-300">Ajouter</button>
+            </form>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-semibold mb-4">Tâches en cours</h2>
+                <ul id="todo-list" class="space-y-4"></ul>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-semibold mb-4">Tâches terminées</h2>
+                <ul id="completed-list" class="space-y-4"></ul>
+            </div>
+        </div>
+        <div class="flex flex-col justify-center items-center">
+          <div class="mt-8 max-w-md bg-white rounded-lg shadow-lg p-6 ">
+              <h2 class="text-2xl font-semibold mb-4">Statistiques</h2>
+              <canvas id="todo-chart"></canvas>
+          </div>
+        </div>
+    </div>
+
+    <script>
+        let todos = JSON.parse(localStorage.getItem('todoList')) || [];
+        const todoForm = document.getElementById('todo-form');
+        const todoInput = document.getElementById('todo-input');
+        const todoDate = document.getElementById('todo-date');
+        const todoPriority = document.getElementById('todo-priority');
+        const todoListElement = document.getElementById('todo-list');
+        const completedList = document.getElementById('completed-list');
+        const todoChart = document.getElementById('todo-chart');
+
+        todoForm.addEventListener('submit', addTodo);
+        
+        function addTodo(e) {
+            e.preventDefault();
+            if (todoInput.value.trim() === '') return;
+
+            const todo = {
+                id: Date.now(),
+                text: todoInput.value,
+                date: todoDate.value,
+                priority: todoPriority.value,
+                completed: false
+            };
+
+            todos.push(todo);
+            saveTodos();
+            updateTodoList();
+            updateChart();
+
+            todoInput.value = '';
+            todoDate.value = '';
+            todoPriority.value = 'low';
+        }
+
+        function updateTodoList() {
+            todoListElement.innerHTML = '';
+            completedList.innerHTML = '';
+
+            todos.forEach(todo => {
+                const li = document.createElement('li');
+                li.className = `flex items-center justify-between p-4 bg-gray-100 rounded transition duration-300 ${todo.completed ? 'opacity-50' : ''}`;
+                li.innerHTML = `
+                    <div>
+                        <h3 class="font-semibold ${getPriorityColor(todo.priority)}">${todo.text}</h3>
+                        <p class="text-sm text-gray-600">${todo.date}</p>
+                    </div>
+                    <div>
+                        <button onclick="toggleTodo(${todo.id})" class="mr-2 text-blue-500 hover:text-blue-700">
+                            ${todo.completed ? 'Annuler' : 'Terminer'}
+                        </button>
+                        <button onclick="deleteTodo(${todo.id})" class="text-red-500 hover:text-red-700">Supprimer</button>
+                    </div>
+                `;
+
+                if (todo.completed) {
+                    completedList.appendChild(li);
+                } else {
+                    todoListElement.appendChild(li);
+                }
+            });
+
+            Sortable.create(todoListElement, { 
+                animation: 150,
+                onEnd: function() {
+                    saveTodos();
+                }
+            });
+            Sortable.create(completedList, { 
+                animation: 150,
+                onEnd: function() {
+                    saveTodos();
+                }
+            });
+        }
+
+        function toggleTodo(id) {
+            const todo = todos.find(t => t.id === id);
+            todo.completed = !todo.completed;
+            saveTodos();
+            updateTodoList();
+            updateChart();
+        }
+
+        function deleteTodo(id) {
+            todos = todos.filter(t => t.id !== id);
+            saveTodos();
+            updateTodoList();
+            updateChart();
+        }
+
+        function getPriorityColor(priority) {
+            switch(priority) {
+                case 'low': return 'text-green-600';
+                case 'medium': return 'text-yellow-600';
+                case 'high': return 'text-red-600';
+                default: return '';
+            }
+        }
+
+        function saveTodos() {
+            localStorage.setItem('todoList', JSON.stringify(todos));
+        }
+
+        function updateChart() {
+            const completed = todos.filter(t => t.completed).length;
+            const remaining = todos.filter(t => !t.completed).length;
+
+            if (window.todoChartInstance) {
+                window.todoChartInstance.destroy();
+            }
+
+            window.todoChartInstance = new Chart(todoChart, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Terminées', 'En cours'],
+                    datasets: [{
+                        data: [completed, remaining],
+                        backgroundColor: ['#10B981', '#3B82F6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Progression des tâches'
+                        }
+                    }
+                }
+            });
+        }
+
+        updateTodoList();
+        updateChart();
+    </script>
+</body>
+</html>
