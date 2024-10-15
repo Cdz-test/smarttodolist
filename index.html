@@ -110,13 +110,19 @@
                 animation: 150,
                 onEnd: function() {
                     saveTodos();
-                }
+                },
+                touchStartThreshold: 0,
+                delayOnTouchOnly: true,
+                delay: 100
             });
             Sortable.create(completedList, { 
                 animation: 150,
                 onEnd: function() {
                     saveTodos();
-                }
+                },
+                touchStartThreshold: 0,
+                delayOnTouchOnly: true,
+                delay: 100
             });
         }
 
