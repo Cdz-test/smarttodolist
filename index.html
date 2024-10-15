@@ -86,16 +86,17 @@
             todos.forEach(todo => {
                 const li = document.createElement('li');
                 li.className = `flex items-center justify-between p-4 bg-gray-100 rounded transition duration-300 ${todo.completed ? 'opacity-50' : ''}`;
+                li.setAttribute('data-id', todo.id);
                 li.innerHTML = `
                     <div>
                         <h3 class="font-semibold ${getPriorityColor(todo.priority)}">${todo.text}</h3>
                         <p class="text-sm text-gray-600">${todo.date}</p>
                     </div>
                     <div>
-                        <button onclick="toggleTodo(${todo.id})" class="mr-2 text-blue-500 hover:text-blue-700">
+                        <button class="toggle-btn mr-2 text-blue-500 hover:text-blue-700">
                             ${todo.completed ? 'Annuler' : 'Terminer'}
                         </button>
-                        <button onclick="deleteTodo(${todo.id})" class="text-red-500 hover:text-red-700">Supprimer</button>
+                        <button class="delete-btn text-red-500 hover:text-red-700">Supprimer</button>
                     </div>
                 `;
 
@@ -106,24 +107,49 @@
                 }
             });
 
-            Sortable.create(todoListElement, { 
-                animation: 150,
-                onEnd: function() {
-                    saveTodos();
-                },
-                touchStartThreshold: 0,
-                delayOnTouchOnly: true,
-                delay: 100
+            initSortable();
+            addEventListeners();
+        }
+
+        function initSortable() {
+            [todoListElement, completedList].forEach(list => {
+                if (list.sortable) {
+                    list.sortable.destroy();
+                }
+                list.sortable = new Sortable(list, { 
+                    animation: 150,
+                    onEnd: function() {
+                        updateTodosOrder();
+                        saveTodos();
+                    },
+                    delay: 100,
+                    delayOnTouchOnly: true,
+                    touchStartThreshold: 5
+                });
             });
-            Sortable.create(completedList, { 
-                animation: 150,
-                onEnd: function() {
-                    saveTodos();
-                },
-                touchStartThreshold: 0,
-                delayOnTouchOnly: true,
-                delay: 100
+        }
+
+        function addEventListeners() {
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = parseInt(this.closest('li').getAttribute('data-id'));
+                    toggleTodo(id);
+                });
             });
+
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = parseInt(this.closest('li').getAttribute('data-id'));
+                    deleteTodo(id);
+                });
+            });
+        }
+
+        function updateTodosOrder() {
+            const newOrder = [...todoListElement.children, ...completedList.children].map(li => {
+                return todos.find(t => t.id === parseInt(li.getAttribute('data-id')));
+            });
+            todos = newOrder;
         }
 
         function toggleTodo(id) {
